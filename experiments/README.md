@@ -1,41 +1,19 @@
 # Listwise Reranker con DSPy
 
-Implementación de un reranker listwise basado en LLMs usando DSPy.
-
-## Estructura
-
-```
-experiments/
-├── reranker/
-│   ├── __init__.py
-│   ├── signatures.py    # DSPy Signatures (input/output schemas)
-│   ├── module.py        # ListwiseReranker dspy.Module
-│   ├── metrics.py       # IR metrics: nDCG@k, Recall@k, MRR
-│   ├── dataset.py       # BEIR dataset loading + first-stage retrieval
-│   ├── optimize.py      # MIPROv2 / GEPA optimizers
-│   └── evaluate.py      # End-to-end evaluation pipeline
-├── run_experiment.py    # Main script
-├── requirements.txt
-└── results/             # Saved optimized prompts + eval results
-```
+Reranker listwise basado en LLMs usando DSPy. Optimización automática de prompts con MIPROv2 y GEPA.
 
 ## Setup
 
 ```bash
 cd experiments
 pip install -r requirements.txt
-export OPENAI_API_KEY=sk-...
+export OPENAI_API_KEY=sk-...     # o OLLAMA_API_KEY=...
 ```
 
 ## Uso
 
 ```bash
-# Evaluación baseline (sin optimización)
 python run_experiment.py --dataset scifact --k 10 --no-optimize
-
-# Optimización con MIPROv2
-python run_experiment.py --dataset scifact --k 10 --optimizer mipro
-
-# Optimización con GEPA
-python run_experiment.py --dataset scifact --k 10 --optimizer gepa
+python run_experiment.py --dataset scifact --k 10 --optimizer mipro --auto light
+python run_experiment.py --dataset scifact --lm ollama-cloud/glm-5.2 --optimizer gepa
 ```

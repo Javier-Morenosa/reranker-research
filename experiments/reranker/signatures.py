@@ -1,8 +1,5 @@
 """
 DSPy Signatures para listwise reranking.
-
-Una Signature define el contrato input/output del LLM.
-DSPy las usa para generar y optimizar los prompts automáticamente.
 """
 
 import dspy
@@ -11,7 +8,6 @@ from pydantic import BaseModel, Field
 
 
 class DocumentCandidate(BaseModel):
-    """Modelo de un documento candidato para reranking."""
     id: int = Field(description="Identificador único del documento (1-indexed)")
     text: str = Field(description="Contenido del documento")
     initial_rank: int = Field(description="Ranking original del first-stage retriever")
@@ -58,9 +54,7 @@ class VerboseRelevanceRanker(dspy.Signature):
 
 
 class AssessRelevance(dspy.Signature):
-    """Assess whether or not the candidate document is relevant to the query.
-    Used for pointwise comparison / as a building block.
-    """
+    """Assess whether or not the candidate document is relevant to the query."""
     query: str = dspy.InputField(desc="The user's question or information need")
     candidate_document: str = dspy.InputField(desc="The candidate document to assess")
     relevance_assessment: bool = dspy.OutputField(
@@ -70,12 +64,10 @@ class AssessRelevance(dspy.Signature):
 
 class SummarizeSearchRelevance(dspy.Signature):
     """Given a query and a passage, summarize how the passage is (or isn't) relevant
-    to answering the query. This summary will be used by a downstream reranker
-    instead of the raw document text, reducing token cost.
+    to answering the query.
     """
     query: str = dspy.InputField(desc="The user's question or information need")
     passage: str = dspy.InputField(desc="The candidate document passage")
     relevance_summary: str = dspy.OutputField(
-        desc="A concise summary of how this passage relates to the query, "
-             "including what information it provides and what it lacks"
+        desc="A concise summary of how this passage relates to the query"
     )

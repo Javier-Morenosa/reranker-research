@@ -1,22 +1,15 @@
 """
-Ejemplo mínimo: listwise reranking con DSPy.
+Ejemplo mínimo de listwise reranking con DSPy.
 
-Este script muestra el flujo completo en ~30 líneas:
-1. Configurar LLM
-2. Crear documentos candidatos
-3. Rerankear con el LLM
-4. Evaluar con métricas IR
-
-Ejecutar:
-    export OLLAMA_API_KEY=your_key
-    python quick_example.py
+export OLLAMA_API_KEY=your_key
+python quick_example.py
 """
 
 import os
 import dspy
 from reranker import ListwiseReranker, DocumentCandidate, ndcg_at_k, recall_at_k, mrr
 
-# 1. Configurar LLM (Ollama Cloud, OpenAI, o Ollama local)
+# 1. Configurar LLM
 lm = dspy.LM(
     "openai/glm-5.2",
     api_key=os.getenv("OLLAMA_API_KEY"),
@@ -25,7 +18,7 @@ lm = dspy.LM(
 )
 dspy.configure(lm=lm)
 
-# 2. Crear documentos candidatos (simulando first-stage retrieval)
+# 2. Documentos candidatos (simulando first-stage retrieval)
 query = "What is the capital of France?"
 docs = [
     DocumentCandidate(id=1, text="Paris is the capital and largest city of France.", initial_rank=1),
@@ -34,15 +27,15 @@ docs = [
     DocumentCandidate(id=4, text="Tokyo is the capital of Japan.", initial_rank=4),
     DocumentCandidate(id=5, text="The Louvre museum houses the Mona Lisa in Paris.", initial_rank=5),
 ]
-relevant_ids = {1, 3, 5}  # Docs sobre Francia/Paris son relevantes
+relevant_ids = {1, 3, 5}
 
-# 3. Rerankear con el LLM
+# 3. Rerankear
 reranker = ListwiseReranker(top_k=5)
 result = reranker(query=query, search_results=docs, top_k=5)
 print(f"Query: {query}")
 print(f"Reranked IDs: {result.reranked_ids}")
 
-# 4. Evaluar con métricas IR
+# 4. Métricas
 print(f"\nnDCG@5:  {ndcg_at_k(result.reranked_ids, relevant_ids, k=5):.4f}")
 print(f"Recall@5: {recall_at_k(result.reranked_ids, relevant_ids, k=5):.4f}")
 print(f"MRR:     {mrr(result.reranked_ids, relevant_ids):.4f}")
