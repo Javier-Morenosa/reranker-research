@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Listwise Reranking con LLMs y DSPy — Experimentos en BEIR SCIFACT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08090a;
+  --panel: #0f1011;
+  --surface: #191a1b;
+  --text: #f7f8f8;
+  --text-2: #d0d6e0;
+  --text-3: #8a8f98;
+  --text-4: #62666d;
+  --accent: #5e6ad2;
+  --accent-bright: #7170ff;
+  --accent-hover: #828fff;
+  --green: #10b981;
+  --green-dim: #27a644;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --border: rgba(255,255,255,0.08);
+  --border-subtle: rgba(255,255,255,0.05);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-feature-settings: "cv01", "ss03";
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+/* Nav */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,9,10,0.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 14px 0;
+}
+nav .container { display: flex; align-items: center; justify-content: space-between; }
+nav .brand { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+nav .brand span { color: var(--accent-bright); }
+nav .meta { font-size: 13px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
+
+/* Hero */
+.hero { padding: 80px 0 60px; }
+.hero .tag {
+  display: inline-block; font-size: 12px; font-weight: 500; letter-spacing: 0.05em;
+  color: var(--accent-bright); text-transform: uppercase;
+  padding: 4px 10px; border: 1px solid rgba(113,112,255,0.2); border-radius: 999px;
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-size: 44px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.05;
+  margin-bottom: 20px;
+}
+.hero h1 em { font-style: normal; color: var(--accent-bright); }
+.hero .subtitle {
+  font-size: 18px; color: var(--text-3); font-weight: 300; line-height: 1.6;
+  max-width: 640px;
+}
+.hero .info {
+  margin-top: 32px; display: flex; gap: 32px; flex-wrap: wrap;
+  font-size: 13px; color: var(--text-4); font-family: 'JetBrains Mono', monospace;
+}
+.hero .info b { color: var(--text-2); font-weight: 500; }
+
+/* Section */
+section { padding: 48px 0; border-top: 1px solid var(--border-subtle); }
+section h2 {
+  font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+section h3 {
+  font-size: 18px; font-weight: 500; color: var(--text-2);
+  margin-top: 36px; margin-bottom: 10px;
+}
+section p { color: var(--text-2); font-size: 16px; margin-bottom: 14px; }
+section p code, li code {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
+  color: var(--accent-bright);
+}
+section ul { margin: 12px 0 20px 20px; }
+section li { color: var(--text-2); margin-bottom: 8px; font-size: 15px; }
+
+/* Cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 24px 0; }
+.card {
+  background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px;
+}
+.card .label { font-size: 12px; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.card .value { font-size: 28px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.card .value.green { color: var(--green); }
+.card .value.accent { color: var(--accent-bright); }
+.card .desc { font-size: 13px; color: var(--text-3); margin-top: 6px; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+th {
+  text-align: left; font-weight: 500; color: var(--text-3);
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+td {
+  padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 13px;
+}
+td.bold { color: var(--text); font-weight: 500; }
+td .delta-pos { color: var(--green); }
+td .delta-neu { color: var(--text-4); }
+tr:hover td { background: rgba(255,255,255,0.015); }
+
+/* Bar chart */
+.bar-chart { margin: 24px 0; }
+.bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.bar-label { width: 90px; font-size: 13px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; text-align: right; }
+.bar-track { flex: 1; height: 28px; background: rgba(255,255,255,0.03); border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; display: flex; align-items: center; padding-left: 10px; }
+.bar-fill.base { background: rgba(138,143,152,0.25); }
+.bar-fill.mipro { background: linear-gradient(90deg, var(--accent), var(--accent-bright)); }
+.bar-fill.gepa { background: linear-gradient(90deg, var(--green-dim), var(--green)); }
+.bar-value { font-size: 12px; font-weight: 500; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+.bar-value.light { color: var(--text); }
+.bar-value.dark { color: var(--text-3); }
+.bar-legend { display: flex; gap: 24px; margin-top: 20px; font-size: 13px; }
+.legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-3); }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+.legend-dot.base { background: rgba(138,143,152,0.4); }
+.legend-dot.mipro { background: var(--accent-bright); }
+.legend-dot.gepa { background: var(--green); }
+
+/* Code block */
+.code-block {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px 20px; margin: 16px 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  color: var(--text-2); overflow-x: auto; line-height: 1.5;
+}
+.code-block .kw { color: var(--accent-bright); }
+.code-block .str { color: var(--green); }
+.code-block .com { color: var(--text-4); }
+
+/* Callout */
+.callout {
+  background: rgba(94,106,210,0.08); border: 1px solid rgba(94,106,210,0.2);
+  border-radius: 8px; padding: 16px 20px; margin: 20px 0;
+}
+.callout-label { font-size: 12px; font-weight: 600; color: var(--accent-bright); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.callout p { margin: 0; font-size: 15px; color: var(--text-2); }
+
+/* Pipeline */
+.pipeline { display: flex; flex-direction: column; gap: 0; margin: 28px 0; }
+.pipeline-step {
+  background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px 20px; position: relative;
+}
+.pipeline-step:not(:last-child)::after {
+  content: ''; position: absolute; bottom: -12px; left: 32px;
+  width: 1px; height: 12px; background: var(--border);
+}
+.pipeline-step .step-num { font-size: 11px; font-weight: 600; color: var(--accent-bright); font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
+.pipeline-step .step-title { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+.pipeline-step .step-desc { font-size: 14px; color: var(--text-3); }
+.pipeline-step code { font-size: 12px; }
+
+/* Footer */
+footer { padding: 40px 0; border-top: 1px solid var(--border-subtle); text-align: center; }
+footer p { font-size: 13px; color: var(--text-4); }
+footer a { color: var(--accent-bright); text-decoration: none; }
+footer a:hover { color: var(--accent-hover); }
+
+@media (max-width: 640px) {
+  .hero h1 { font-size: 32px; }
+  .hero .subtitle { font-size: 16px; }
+  section h2 { font-size: 22px; }
+  .card-grid { grid-template-columns: 1fr; }
+  .bar-label { width: 70px; font-size: 11px; }
+  nav .meta { display: none; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <div class="brand">reranker<span>—research</span></div>
+    <div class="meta">BEIR SCIFACT · glm-5.2 · DSPy 3.3</div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <div class="tag">Experiment Report</div>
+    <h1>Listwise Reranking con LLMs <br>y <em>optimización automática</em> de prompts</h1>
+    <p class="subtitle">
+      Evaluación de un reranker listwise basado en LLMs sobre el dataset BEIR SCIFACT,
+      comparando dos optimizadores de DSPy — MIPROv2 y GEPA — frente a un baseline sin optimizar.
+    </p>
+    <div class="info">
+      <span><b>Dataset:</b> BEIR SCIFACT</span>
+      <span><b>Modelo:</b> glm-5.2 (Ollama Cloud)</span>
+      <span><b>Retrieval:</b> BM25 top-20</span>
+      <span><b>Reranking:</b> top-10</span>
+      <span><b>Ejemplos:</b> 18 (9 train / 9 val)</span>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="container">
+    <h2>1. Motivación</h2>
+    <p>
+      El reranking es la segunda etapa de un pipeline de retrieval: un primer recuperador
+      (BM25, dense) produce candidatos, y un modelo más potente los reordena. Los rerankers
+      <em>listwise</em> toman todos los candidatos a la vez y producen un ordenamiento global,
+      a diferencia de los enfoques <em>pointwise</em> (un documento a la vez) o <em>pairwise</em>
+      (comparaciones de pares).
+    </p>
+    <p>
+      DSPy permite declarar el reranker como un módulo con una <em>signature</em> (contrato
+      input/output) y optimizar automáticamente el prompt usando métricas IR reales como
+      nDCG@k. Esto elimina laingeniería manual de prompts y permite al modelo descubrir
+      instrucciones específicas al dominio.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>2. Pipeline</h2>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-num">STAGE 1</div>
+        <div class="step-title">First-stage retrieval</div>
+        <div class="step-desc">BM25 sobre el corpus de 5,183 documentos. Devuelve top-20 candidatos por query.</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">STAGE 2</div>
+        <div class="step-title">DSPy Signature → LLM reranking</div>
+        <div class="step-desc">La signature <code>RelevanceRanker</code> recibe query + 20 documentos y devuelve los IDs reordenados. El LLM (glm-5.2) evalúa relevancia semántica.</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">STAGE 3</div>
+        <div class="step-title">Optimización del prompt</div>
+        <div class="step-desc">MIPROv2 (Bayesian Optimization) o GEPA (evolución reflexiva) ajustan instrucción y few-shot demos para maximizar nDCG@10.</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">STAGE 4</div>
+        <div class="step-title">Evaluación IR</div>
+        <div class="step-desc">nDCG@k, Recall@k, MRR, MAP@k contra las qrels de BEIR (ground truth).</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>3. Resultados</h2>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="label">nDCG@10 Baseline</div>
+        <div class="value">83.2%</div>
+        <div class="desc">glm-5.2 sin optimizar</div>
+      </div>
+      <div class="card">
+        <div class="label">nDCG@10 MIPROv2</div>
+        <div class="value accent">88.3%</div>
+        <div class="desc">+6.1% rel · +5.1pp</div>
+      </div>
+      <div class="card">
+        <div class="label">nDCG@10 GEPA</div>
+        <div class="value green">84.4%</div>
+        <div class="desc">+1.4% rel · +1.2pp</div>
+      </div>
+      <div class="card">
+        <div class="label">nDCG@1 MIPROv2</div>
+        <div class="value accent">77.8%</div>
+        <div class="desc">+16.7% rel vs baseline</div>
+      </div>
+    </div>
+
+    <h3>Comparación por métrica</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Métrica</th>
+          <th>Baseline</th>
+          <th>MIPROv2</th>
+          <th>GEPA</th>
+          <th>Δ MIPROv2</th>
+          <th>Δ GEPA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="bold">nDCG@1</td><td>66.7%</td><td class="bold">77.8%</td><td>66.7%</td><td><span class="delta-pos">+16.7%</span></td><td><span class="delta-neu">+0.0%</span></td></tr>
+        <tr><td class="bold">nDCG@5</td><td>79.2%</td><td class="bold">84.8%</td><td>80.7%</td><td><span class="delta-pos">+7.0%</span></td><td><span class="delta-pos">+1.8%</span></td></tr>
+        <tr><td class="bold">nDCG@10</td><td>83.2%</td><td class="bold">88.3%</td><td>84.4%</td><td><span class="delta-pos">+6.1%</span></td><td><span class="delta-pos">+1.4%</span></td></tr>
+        <tr><td class="bold">Recall@1</td><td>66.7%</td><td class="bold">77.8%</td><td>66.7%</td><td><span class="delta-pos">+16.7%</span></td><td><span class="delta-neu">+0.0%</span></td></tr>
+        <tr><td class="bold">Recall@5</td><td>88.9%</td><td>88.9%</td><td>88.9%</td><td><span class="delta-neu">+0.0%</span></td><td><span class="delta-neu">+0.0%</span></td></tr>
+        <tr><td class="bold">Recall@10</td><td>100%</td><td>100%</td><td>100%</td><td><span class="delta-neu">+0.0%</span></td><td><span class="delta-neu">+0.0%</span></td></tr>
+        <tr><td class="bold">MRR</td><td>77.8%</td><td class="bold">84.7%</td><td>79.4%</td><td><span class="delta-pos">+8.9%</span></td><td><span class="delta-pos">+2.0%</span></td></tr>
+        <tr><td class="bold">MAP@10</td><td>77.8%</td><td class="bold">84.7%</td><td>79.4%</td><td><span class="delta-pos">+8.9%</span></td><td><span class="delta-pos">+2.0%</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>nDCG@k por configuración</h3>
+    <div class="bar-chart">
+      <div class="bar-row">
+        <div class="bar-label">nDCG@1</div>
+        <div class="bar-track">
+          <div class="bar-fill base" style="width: 66.7%"><span class="bar-value dark">Baseline 66.7%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"></div>
+        <div class="bar-track">
+          <div class="bar-fill mipro" style="width: 77.8%"><span class="bar-value light">MIPROv2 77.8%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"></div>
+        <div class="bar-track">
+          <div class="bar-fill gepa" style="width: 66.7%"><span class="bar-value light">GEPA 66.7%</span></div>
+        </div>
+      </div>
+      <div style="height: 12px;"></div>
+      <div class="bar-row">
+        <div class="bar-label">nDCG@5</div>
+        <div class="bar-track">
+          <div class="bar-fill base" style="width: 79.2%"><span class="bar-value dark">Baseline 79.2%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"></div>
+        <div class="bar-track">
+          <div class="bar-fill mipro" style="width: 84.8%"><span class="bar-value light">MIPROv2 84.8%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"></div>
+        <div class="bar-track">
+          <div class="bar-fill gepa" style="width: 80.7%"><span class="bar-value light">GEPA 80.7%</span></div>
+        </div>
+      </div>
+      <div style="height: 12px;"></div>
+      <div class="bar-row">
+        <div class="bar-label">nDCG@10</div>
+        <div class="bar-track">
+          <div class="bar-fill base" style="width: 83.2%"><span class="bar-value dark">Baseline 83.2%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"></div>
+        <div class="bar-track">
+          <div class="bar-fill mipro" style="width: 88.3%"><span class="bar-value light">MIPROv2 88.3%</span></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"></div>
+        <div class="bar-track">
+          <div class="bar-fill gepa" style="width: 84.4%"><span class="bar-value light">GEPA 84.4%</span></div>
+        </div>
+      </div>
+      <div class="bar-legend">
+        <div class="legend-item"><div class="legend-dot base"></div>Baseline</div>
+        <div class="legend-item"><div class="legend-dot mipro"></div>MIPROv2</div>
+        <div class="legend-item"><div class="legend-dot gepa"></div>GEPA</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>4. Lo que el optimizador aprendió</h2>
+    <p>
+      MIPROv2 generó automáticamente una instrucción específica para el dominio biomédico
+      de SCIFACT, sin que se le indicara el tipo de contenido. La instrucción optimizada:
+    </p>
+    <div class="code-block">
+<span class="com"># Instrucción generada por MIPROv2 (program_10)</span>
+<span class="str">"You are an expert biomedical scientist and information</span>
+<span class="str"> retrieval specialist. Your task is to rerank a list of</span>
+<span class="str"> research paper snippets based on their semantic relevance</span>
+<span class="str"> to a given biomedical claim.</span>
+
+<span class="str"> The query is a concise declarative statement about a</span>
+<span class="str"> medical or biological mechanism. The search results are</span>
+<span class="str"> snippets from scientific literature. Relevance is determined</span>
+<span class="str"> by whether a snippet explicitly supports, discusses, or</span>
+<span class="str"> directly relates to the specific entities, interactions, or</span>
+<span class="str"> mechanisms mentioned in the claim..."</span>
+
+<span class="com"># + 2 few-shot demos con ejemplos de reranking correcto</span>
+    </div>
+    <p>
+      GEPA, por su parte, usó el feedback textual de la métrica ("Missed 2 relevant
+      documents...", "Query was: '...'") para reflexionar sobre los errores y proponer
+      mutaciones con conocimiento específico — mencionando entidades como PPM1D, p53,
+      APOE4 y vCJD en las instrucciones candidatas.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>5. Análisis</h2>
+
+    <div class="callout">
+      <div class="callout-label">Hallazgo principal</div>
+      <p>MIPROv2 supera a GEPA en todas las métricas donde hay mejora. La diferencia clave:
+      MIPROv2 añade <em>few-shot demos</em> al prompt además de optimizar la instrucción.
+      GEPA solo muta la instrucción mediante evolución reflexiva.</p>
+    </div>
+
+    <h3>Por qué MIPROv2 > GEPA en este setup</h3>
+    <ul>
+      <li>Los <em>few-shot demos</em> dan al LLM ejemplos concretos de reranking correcto — más efectivo que solo cambiar la instrucción.</li>
+      <li>MIPROv2 usa <em>Bayesian Optimization</em> (optuna) para buscar sistemáticamente el mejor combo instrucción + demos.</li>
+      <li>El baseline ya es fuerte (83.2% nDCG@10). Con poco margen, muchas trayectorias de GEPA tienen score perfecto y se saltan la reflexión.</li>
+    </ul>
+
+    <h3>Por qué GEPA mejora poco</h3>
+    <ul>
+      <li><code>skip_perfect_score=True</code>: GEPA no reflexiona sobre trayectorias con score 100%. Con un baseline fuerte, muchas lo son.</li>
+      <li>GEPA genera prompts elaborados con conocimiento del dominio, pero eso no supera a los demos concretos.</li>
+      <li>GEPA brillaría con un baseline más débil, más datos, o un modelo de reflexión más potente.</li>
+    </ul>
+
+    <h3>Observaciones sobre Recall</h3>
+    <ul>
+      <li><code>Recall@10</code> está en 100% en las tres configuraciones — el reranker encuentra todos los docs relevantes.</li>
+      <li>La mejora está en <em>ordenarlos mejor</em>, no en encontrar más. Esto se refleja en nDCG@1 (+16.7% con MIPROv2).</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>6. Comparación de optimizadores</h2>
+    <table>
+      <thead>
+        <tr><th>Aspecto</th><th>MIPROv2</th><th>GEPA</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="bold">Estrategia</td><td>Bayesian Optimization</td><td>Evolución reflexiva</td></tr>
+        <tr><td class="bold">Qué optimiza</td><td>Instrucción + few-shot demos</td><td>Solo instrucción</td></tr>
+        <tr><td class="bold">Feedback</td><td>Score numérico</td><td>Score + feedback textual</td></tr>
+        <tr><td class="bold">Búsqueda</td><td>Sistemática (Bayesian)</td><td>Exploratoria (Pareto)</td></tr>
+        <tr><td class="bold">Mejor para</td><td>Pocos datos, demos efectivos</td><td>Mucho feedback, baseline débil</td></tr>
+        <tr><td class="bold">Dependencias</td><td>optuna</td><td>gepa (incluido en dspy)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>7. Reproducibilidad</h2>
+    <div class="code-block">
+<span class="com"># Setup</span>
+<span class="kw">cd</span> experiments
+<span class="kw">pip</span> install -r requirements.txt
+<span class="kw">export</span> OLLAMA_API_KEY=your_key
+
+<span class="com"># Baseline</span>
+<span class="kw">python</span> run_experiment.py --dataset scifact --k 10 --no-optimize
+
+<span class="com"># MIPROv2</span>
+<span class="kw">python</span> run_experiment.py --dataset scifact --lm ollama-cloud/glm-5.2 \
+  --k 10 --optimizer mipro --auto light
+
+<span class="com"># GEPA</span>
+<span class="kw">python</span> run_experiment.py --dataset scifact --lm ollama-cloud/glm-5.2 \
+  --k 10 --optimizer gepa --reflection-lm ollama-cloud/glm-5.2 --auto light
+    </div>
+    <p>
+      Resultados guardados en <code>experiments/results/</code> como JSON con todas las
+      métricas por query y agregadas.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>8. Referencias</h2>
+    <ul>
+      <li>Khattab et al. "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines." ICLR 2024. <a href="https://arxiv.org/abs/2310.03714" style="color:var(--accent-bright)">arxiv</a></li>
+      <li>Opsahl-Ong et al. "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs." 2024. <a href="https://arxiv.org/abs/2406.11695" style="color:var(--accent-bright)">arxiv</a></li>
+      <li>Agrawal et al. "GEPA: Reflective Prompt Evolution." 2025. <a href="https://arxiv.org/abs/2507.19457" style="color:var(--accent-bright)">arxiv</a></li>
+      <li>Thakur et al. "BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models." NeurIPS 2021.</li>
+      <li>Pradeep et al. "RankZephyr: Effective and Robust Zero-Shot Listwise Reranking is a Breeze!" 2023. <a href="https://arxiv.org/abs/2312.02724" style="color:var(--accent-bright)">arxiv</a></li>
+      <li>Reddy et al. "FIRST: Faster Improved Listwise Reranking with Single Token Decoding." 2024. <a href="https://arxiv.org/abs/2406.15657" style="color:var(--accent-bright)">arxiv</a></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Repo: <a href="https://github.com/Javier-Morenosa/reranker-research">github.com/Javier-Morenosa/reranker-research</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
