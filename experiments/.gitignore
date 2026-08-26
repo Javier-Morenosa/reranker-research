@@ -1,0 +1,19 @@
+# Datasets cache (descargados por BEIR)
+datasets/
+
+# Logs internos de optimizadores (preservamos solo los resultados JSON)
+results/*_logs/
+
+# Python
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+
+# Archos binarios
+*.bin
+*.cache/
+
+# DSPy cache
+.dspy_cache/

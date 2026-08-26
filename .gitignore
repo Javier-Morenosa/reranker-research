@@ -7,3 +7,12 @@ venv/
 .idea/
 .vscode/
 *.ipynb_checkpoints
+
+# Datasets (descargados por BEIR, no commitear)
+experiments/datasets/
+
+# Logs binarios de optimizadores
+*.bin
+
+# Cache de DSPy
+*.cache/

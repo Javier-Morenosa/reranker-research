@@ -1,0 +1,19 @@
+# Core
+dspy[optuna]>=2.6
+datasets>=2.14
+
+# Retrieval & datasets
+beir>=2.0.0
+sentence-transformers>=3.0
+
+# Evaluation
+numpy>=1.24
+scikit-learn>=1.3
+
+# Logging & tracking (optional)
+mlflow>=2.20
+wandb>=0.16
+
+# Utilities
+tqdm>=4.66
+python-dotenv>=1.0
